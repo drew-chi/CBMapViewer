@@ -20,7 +20,7 @@ class MapViewer:
         self.screen_width = self.settings.settings["resolution"]["width"]
         self.screen_height = self.settings.settings["resolution"]["height"]
         self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
-        pygame.display.set_caption("Combat Box Map Viewer")
+        pygame.display.set_caption("Combat Box Map Viewer by JaggedFel")
 
         # Initialize input handler
         self.input_handler = InputHandler(self)
