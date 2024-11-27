@@ -1,0 +1,37 @@
+{
+    "resolution": {
+        "width": 1920,
+        "height": 1080
+    },
+    "keybinds": {
+        "pan_left": {
+            "type": "keyboard",
+            "value": 1073741904
+        },
+        "pan_right": {
+            "type": "keyboard",
+            "value": 1073741903
+        },
+        "pan_up": {
+            "type": "keyboard",
+            "value": 1073741906
+        },
+        "pan_down": {
+            "type": "keyboard",
+            "value": 1073741905
+        },
+        "zoom_in": {
+            "type": "keyboard",
+            "value": 43
+        },
+        "zoom_out": {
+            "type": "keyboard",
+            "value": 45
+        },
+        "reset_view": {
+            "type": "keyboard",
+            "value": 114
+        }
+    },
+    "use_scroll_wheel": true
+}
