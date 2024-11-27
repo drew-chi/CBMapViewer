@@ -2,7 +2,7 @@
 import json
 import os
 import pygame
-
+import win32con
 
 class Settings:
     def __init__(self):

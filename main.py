@@ -6,8 +6,9 @@ from bs4 import BeautifulSoup
 import time
 from settings import Settings
 from ui_elements import Button, Dropdown
-from input_handler import InputHandler
 import keyboard
+from windows_input import WindowsInputHandler
+import win32con
 
 class MapViewer:
     def __init__(self):
@@ -23,7 +24,9 @@ class MapViewer:
         pygame.display.set_caption("Combat Box Map Viewer by JaggedFel")
 
         # Initialize input handler
-        self.input_handler = InputHandler(self)
+        self.input_handler = WindowsInputHandler(self)
+        self.setup_global_input_handlers()
+        self.input_handler.start()
 
         # View parameters
         self.zoom = 1.0
@@ -32,7 +35,7 @@ class MapViewer:
         self.pan_speed = 20
         self.zoom_speed = 0.1
         self.min_zoom = 0.2
-        self.max_zoom = 3.0
+        self.max_zoom = 1.5
 
         # Mouse control variables
         self.dragging = False
@@ -46,7 +49,9 @@ class MapViewer:
 
         # Resolution options
         self.resolution_options = [
-            "1920x1080",
+            "3840x2160",  # 4K
+            "2560x1440",  # 2K
+            "1920x1080",  # Full HD
             "1600x900",
             "1366x768",
             "1280x720"
@@ -106,26 +111,26 @@ class MapViewer:
 
         for action, bind in keybinds.items():
             if bind["type"] == "keyboard":
-                # Convert pygame key to Windows virtual key code
                 vk_code = self.pygame_to_vk(bind["value"])
                 if vk_code:
-                    self.global_input.register_key_handler(
+                    self.input_handler.register_key_handler(
                         vk_code,
                         lambda a=action: self.handle_action(a)
                     )
 
     def pygame_to_vk(self, pygame_key):
         """Convert pygame key code to Windows virtual key code"""
-        # This is a basic mapping, extend as needed
         key_mapping = {
             pygame.K_LEFT: win32con.VK_LEFT,
             pygame.K_RIGHT: win32con.VK_RIGHT,
             pygame.K_UP: win32con.VK_UP,
             pygame.K_DOWN: win32con.VK_DOWN,
             pygame.K_PLUS: win32con.VK_ADD,
+            pygame.K_KP_PLUS: win32con.VK_ADD,
             pygame.K_MINUS: win32con.VK_SUBTRACT,
-            pygame.K_r: ord('R'),
-            # Add more mappings as needed
+            pygame.K_KP_MINUS: win32con.VK_SUBTRACT,
+            pygame.K_r: 0x52,  # ASCII code for 'R'
+            pygame.K_ESCAPE: win32con.VK_ESCAPE
         }
         return key_mapping.get(pygame_key)
 
@@ -176,11 +181,10 @@ class MapViewer:
         close_button = Button(self.screen_width - 60, 10, 50, 30, "X")
         close_button.draw(self.screen)
 
-        # Draw resolution dropdown
+        # Draw resolution label
         font = pygame.font.Font(None, 24)
         text = font.render("Resolution:", True, (255, 255, 255))
         self.screen.blit(text, (self.screen_width // 2 - 200, 205))
-        self.resolution_dropdown.draw(self.screen)
 
         # Draw keybind buttons
         y_pos = 300
@@ -190,7 +194,7 @@ class MapViewer:
 
             if bind["type"] == "keyboard":
                 value_text = pygame.key.name(bind["value"])
-            else:  # joystick
+            else:
                 joy_id = bind.get("joy_id", 0)
                 value_text = f"Joy {joy_id} Button {bind['value']}"
 
@@ -198,15 +202,16 @@ class MapViewer:
             button.draw(self.screen)
             y_pos += 40
 
-        # Add scroll wheel toggle
+        # Draw scroll wheel toggle last
         y_pos = 250
-        font = pygame.font.Font(None, 24)
         text = font.render("Use Scroll Wheel:", True, (255, 255, 255))
         self.screen.blit(text, (self.screen_width // 2 - 200, y_pos + 5))
-
         toggle_text = "ON" if self.settings.settings["use_scroll_wheel"] else "OFF"
         toggle_button = Button(self.screen_width // 2, y_pos, 150, 30, toggle_text)
         toggle_button.draw(self.screen)
+
+        # Draw resolution dropdown last to ensure it appears on top
+        self.resolution_dropdown.draw(self.screen)
 
     def toggle_resolution(self):
         self.current_resolution_index = (self.current_resolution_index + 1) % len(self.resolution_options)
@@ -219,16 +224,29 @@ class MapViewer:
         self.settings.save_settings()
 
     def handle_settings_input(self, event, mouse_pos):
-        """Handle inputs while in the settings menu"""
         if self.resolution_dropdown.handle_event(event):
+            print("Resolution dropdown event handled")
             width, height = map(int, self.resolution_options[self.resolution_dropdown.selected_index].split('x'))
+            print(f"Attempting resolution change to {width}x{height}")
+
+            # Update settings
             self.settings.settings["resolution"]["width"] = width
             self.settings.settings["resolution"]["height"] = height
+            self.settings.save_settings()
+
+            # Update screen dimensions
             self.screen_width = width
             self.screen_height = height
             self.screen = pygame.display.set_mode((width, height))
 
-            # Recreate the dropdown with new screen dimensions
+            # Reset view parameters
+            self.zoom = 1.0
+            self.x_offset = 0
+            self.y_offset = 0
+
+            # Recreate UI elements with new positions
+            self.settings_button = Button(10, 40, 100, 30, "Settings")
+            self.refresh_button = Button(120, 40, 100, 30, "Refresh")
             self.resolution_dropdown = Dropdown(
                 self.screen_width // 2 - 100,
                 200,
@@ -236,13 +254,7 @@ class MapViewer:
                 30,
                 self.resolution_options
             )
-            current_res = f"{self.screen_width}x{self.screen_height}"
-            try:
-                self.resolution_dropdown.selected_index = self.resolution_options.index(current_res)
-            except ValueError:
-                self.resolution_dropdown.selected_index = 0
-
-            self.settings.save_settings()
+            self.resolution_dropdown.selected_index = self.resolution_options.index(f"{width}x{height}")
             return True
 
         if event.type == pygame.MOUSEBUTTONDOWN:
@@ -542,6 +554,8 @@ class MapViewer:
 
     def cleanup(self):
         """Clean up resources"""
+        if hasattr(self, 'input_handler'):
+            self.input_handler.stop()
         pygame.quit()
 
 

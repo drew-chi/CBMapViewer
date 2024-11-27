@@ -38,6 +38,13 @@ class Dropdown:
         self.hover_index = -1
 
     def draw(self, screen):
+        # Create background overlay when dropdown is open
+        if self.open:
+            overlay = pygame.Surface((screen.get_width(), screen.get_height()))
+            overlay.fill((0, 0, 0))
+            overlay.set_alpha(128)
+            screen.blit(overlay, (0, 0))
+
         # Draw main button
         pygame.draw.rect(screen, self.color, self.rect)
         font = pygame.font.Font(None, 24)
@@ -45,8 +52,12 @@ class Dropdown:
         text_rect = text.get_rect(center=self.rect.center)
         screen.blit(text, text_rect)
 
-        # Draw dropdown if open
+        # Draw dropdown options
         if self.open:
+            dropdown_bg = pygame.Surface((self.rect.width, self.option_height * len(self.options)))
+            dropdown_bg.fill((50, 50, 50))
+            screen.blit(dropdown_bg, (self.rect.x, self.rect.y + self.option_height))
+
             for i, option in enumerate(self.options):
                 if i != self.selected_index:
                     option_rect = pygame.Rect(
@@ -62,11 +73,11 @@ class Dropdown:
                     screen.blit(text, text_rect)
 
     def handle_event(self, event):
+        changed = False
         if event.type == pygame.MOUSEBUTTONDOWN:
             mouse_pos = event.pos
             if self.rect.collidepoint(mouse_pos):
                 self.open = not self.open
-                return True
             elif self.open:
                 for i, option in enumerate(self.options):
                     if i != self.selected_index:
@@ -79,6 +90,7 @@ class Dropdown:
                         if option_rect.collidepoint(mouse_pos):
                             self.selected_index = i
                             self.open = False
-                            return True
+                            changed = True
+                            break
                 self.open = False
-        return False
+        return changed
