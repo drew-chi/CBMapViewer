@@ -2,15 +2,21 @@ import pygame
 
 
 class Button:
-    def __init__(self, x, y, width, height, text, color=(100, 100, 100), hover_color=(150, 150, 150)):
+    def __init__(self, x, y, width, height, text, color=(100, 100, 100), hover_color=(150, 150, 150),
+                 active_color=(200, 100, 100)):
         self.rect = pygame.Rect(x, y, width, height)
         self.text = text
         self.color = color
         self.hover_color = hover_color
+        self.active_color = active_color
         self.is_hovered = False
+        self.is_active = False
 
     def draw(self, screen):
-        color = self.hover_color if self.is_hovered else self.color
+        if self.is_active:
+            color = self.active_color
+        else:
+            color = self.hover_color if self.is_hovered else self.color
         pygame.draw.rect(screen, color, self.rect)
         font = pygame.font.Font(None, 24)
         text_surface = font.render(self.text, True, (255, 255, 255))

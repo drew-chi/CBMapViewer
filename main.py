@@ -1,4 +1,5 @@
 import pygame
+import math
 import requests
 from io import BytesIO
 from PIL import Image
@@ -9,6 +10,8 @@ from ui_elements import Button, Dropdown
 import keyboard
 from windows_input import WindowsInputHandler
 import win32con
+from chart_manager import ChartManager
+
 
 class MapViewer:
     def __init__(self):
@@ -27,6 +30,9 @@ class MapViewer:
         self.input_handler = WindowsInputHandler(self)
         self.setup_global_input_handlers()
         self.input_handler.start()
+
+        # Initialize charting tools
+        self.chart_manager = ChartManager()
 
         # View parameters
         self.zoom = 1.0
@@ -61,6 +67,7 @@ class MapViewer:
         self.settings_button = Button(10, 40, 100, 30, "Settings")
         self.refresh_button = Button(120, 40, 100, 30, "Refresh")
         self.show_settings = False
+        self.chart_button = Button(230, 40, 100, 30, "Chart")
 
         self.resolution_dropdown = Dropdown(
             self.screen_width // 2 - 100,
@@ -409,6 +416,18 @@ class MapViewer:
         self.constrain_position()
 
     def handle_mouse_input(self, event):
+        mouse_pos = pygame.mouse.get_pos()
+        if self.chart_manager.chart_mode:
+            scaled_width = int(self.original_surface.get_width() * self.zoom)
+            scaled_height = int(self.original_surface.get_height() * self.zoom)
+            map_x = (mouse_pos[0] - self.screen_width // 2 + scaled_width // 2 - self.x_offset) / self.zoom
+            map_y = (mouse_pos[1] - self.screen_height // 2 + scaled_height // 2 - self.y_offset) / self.zoom
+            if self.chart_manager.handle_click(event, mouse_pos, (map_x, map_y)):
+                self.dragging = False
+                self.last_mouse_pos = None
+                return
+            return
+
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:  # Left mouse button
                 self.dragging = True
@@ -423,7 +442,7 @@ class MapViewer:
                 self.dragging = False
 
         elif event.type == pygame.MOUSEMOTION:
-            if self.dragging and self.last_mouse_pos:
+            if self.dragging and self.last_mouse_pos and not self.chart_manager.chart_mode:
                 dx = event.pos[0] - self.last_mouse_pos[0]
                 dy = event.pos[1] - self.last_mouse_pos[1]
                 self.x_offset += dx
@@ -488,9 +507,18 @@ class MapViewer:
 
         self.settings_button.draw(self.screen)
         self.refresh_button.draw(self.screen)
+        self.chart_button.is_active = self.chart_manager.chart_mode
+        self.chart_button.draw(self.screen)
 
         if self.show_settings:
             self.draw_settings_menu()
+
+        if self.chart_manager.chart_mode:
+            def transform_point(p):
+                return (int(self.screen_width // 2 - scaled_width // 2 + self.x_offset + p[0] * self.zoom),
+                        int(self.screen_height // 2 - scaled_height // 2 + self.y_offset + p[1] * self.zoom))
+
+            self.chart_manager.draw(self.screen, transform_point)
 
         pygame.display.flip()
 
@@ -519,9 +547,9 @@ class MapViewer:
         self.last_joystick_update = time.time()
 
         while running:
-            # Update joysticks every 5 seconds instead of every frame
+            # Update joysticks every 10 seconds instead of every frame
             current_time = time.time()
-            if current_time - self.last_joystick_update > 5:
+            if current_time - self.last_joystick_update > 10:
                 self.update_joysticks()
                 self.last_joystick_update = current_time
 
@@ -542,6 +570,8 @@ class MapViewer:
                         self.show_settings = not self.show_settings
                     elif self.refresh_button.handle_event(event):
                         self.refresh_map()
+                    elif self.chart_button.handle_event(event):
+                        self.chart_manager.chart_mode = not self.chart_manager.chart_mode
 
             if not self.show_settings:
                 self.check_for_new_map()
